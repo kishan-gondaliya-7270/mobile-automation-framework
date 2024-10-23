@@ -1,0 +1,53 @@
+name: CI
+
+on: 
+  push:
+    branches: 
+      - main
+  pull_request:
+    branches: 
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.7.0'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests on BrowserStack
+        env: 
+          BS_USER: ${{ secrets.BS_USER }}
+          BS_KEY: ${{ secrets.BS_KEY }}
+        run: npm run test:browserstack 
+        continue-on-error: true
+
+      - name: Generate Allure report
+        if: success() || failure() 
+        run: npx allure generate ./allure-results --clean
+
+      - name: Upload Allure report as artifact
+        if: success() || failure() 
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: ./allure-report
+
+      - name: Upload Allure results for future processing
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: ./allure-results
+
+      - name: Show test results if any failed
+        if: failure()
+        run: echo "One or more tests failed. Check the logs for details."
